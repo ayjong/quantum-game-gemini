@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子運算知識探索遊戲 (AI 增強版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .level-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .level-card:not(.locked):hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .locked {
+            filter: grayscale(80%);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            max-height: 90vh;
+        }
+        .prose p {
+            margin-bottom: 1em;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 p-4 sm:p-6 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+            <h1 class="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">🌌 量子運算知識探索遊戲</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400">探索量子世界的奧秘，掌握未來科技的核心！</p>
+        </header>
+
+        <!-- Game Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                <p class="text-sm text-gray-500 dark:text-gray-400">總分</p>
+                <p id="score" class="text-3xl font-bold text-green-500">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                <p class="text-sm text-gray-500 dark:text-gray-400">當前關卡</p>
+                <p id="current-level-display" class="text-3xl font-bold text-yellow-500">1</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md">
+                <p class="text-sm text-gray-500 dark:text-gray-400">完成度</p>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mt-2">
+                    <div id="progress-bar" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
+                </div>
+                 <p id="progress-text" class="text-xl font-bold text-blue-500 mt-1">0%</p>
+            </div>
+        </div>
+
+        <!-- Levels Grid -->
+        <main id="levels-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Level cards will be injected by JavaScript -->
+        </main>
+    </div>
+
+    <!-- Question Modal -->
+    <div id="question-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div class="modal-content bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 relative overflow-y-auto">
+            <h2 id="modal-title" class="text-2xl md:text-3xl font-bold mb-4 text-blue-600 dark:text-blue-400"></h2>
+            <div id="modal-content-info" class="prose dark:prose-invert max-w-none mb-6 text-base leading-relaxed">
+                <!-- Info text goes here -->
+            </div>
+
+            <!-- Gemini AI Feature -->
+            <div class="my-4">
+                <button id="ai-explain-button" class="w-full bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center">
+                    <span class="mr-2">✨</span> AI 小老師：用初學者的角度解釋
+                </button>
+                <div id="ai-explanation-loader" class="text-center py-4 hidden">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">AI 小老師正在思考中...</p>
+                </div>
+                <div id="ai-explanation-result" class="mt-4 p-4 bg-purple-50 dark:bg-gray-700 rounded-lg hidden prose dark:prose-invert max-w-none">
+                    <!-- AI explanation will be injected here -->
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <p id="modal-question" class="text-lg font-semibold mb-4"></p>
+                <div id="modal-options" class="space-y-3">
+                    <!-- Options buttons go here -->
+                </div>
+            </div>
+             <div id="feedback" class="mt-4 p-3 rounded-lg text-center font-semibold hidden"></div>
+        </div>
+    </div>
+    
+    <!-- Completion Modal -->
+    <div id="completion-modal" class="fixed inset-0 z-50 items-center justify-center p-4 hidden">
+        <div class="modal-backdrop fixed inset-0"></div>
+        <div class="modal-content bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl p-8 text-center">
+            <h2 class="text-4xl font-bold text-green-500 mb-4">🎉 恭喜！</h2>
+            <p class="text-lg mb-6">您已完成所有關卡，成功探索了量子運算的世界！</p>
+            <p class="text-2xl mb-6">最終得分：<span id="final-score" class="font-bold"></span></p>
+            <button onclick="restartGame()" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+                重新開始
+            </button>
+        </div>
+    </div>
+
+
+    <script>
+        const levels = [
+            {
+                id: 1,
+                title: "量子基礎",
+                icon: "🔬",
+                description: "了解量子位元與疊加態的基本概念",
+                info: `
+                    <p>傳統電腦的基本單位是「位元」(bit)，其狀態非 0 即 1。</p>
+                    <p>量子電腦的基本單位則是「<strong>量子位元</strong>」(qubit)。量子位元的革命性在於「<strong>疊加態</strong>」(superposition)，它能同時處於 |0⟩ 和 |1⟩ 兩種狀態的線性組合中，直到被測量時才會塌縮到其中一個確定的狀態。</p>
+                    <p>這意味著 N 個量子位元可以同時表示 2<sup>N</sup> 個狀態，使其資訊儲存與處理能力隨位元數呈指數級增長。</p>
+                `,
+                question: "量子電腦的基本單位稱為什麼？",
+                options: ["傳統位元 (Bit)", "量子位元 (Qubit)", "量子閘 (Quantum Gate)"],
+                answer: "量子位元 (Qubit)",
+            },
+            {
+                id: 2,
+                title: "量子糾纏",
+                icon: "🔗",
+                description: "探索量子糾纏的神秘現象",
+                info: `
+                    <p>「<strong>量子糾纏</strong>」(Quantum Entanglement) 是量子力學的另一項關鍵特性，它描述了兩個或多個量子位元之間存在的神秘關聯。</p>
+                    <p>處於糾纏狀態的量子位元，<strong>無論相隔多遠，其狀態都相互依存</strong>。對其中一個位元的測量結果會瞬間影響到另一個，這種超越空間的關聯性是實現複雜量子演算法的基礎。</p>
+                `,
+                question: "當兩個量子位元處於糾纏狀態時，對其中一個進行測量會發生什麼？",
+                options: ["不會有任何影響", "會摧毀兩個位元", "會瞬間影響另一個的狀態"],
+                answer: "會瞬間影響另一個的狀態",
+            },
+            {
+                id: 3,
+                title: "量子演算法",
+                icon: "⚡",
+                description: "學習Shor與Grover演算法",
+                info: `
+                    <p>量子電腦在解決特定問題時能展現指數級的優勢。其中最著名的演算法之一是「<strong>Shor 演算法</strong>」。</p>
+                    <p>它是為質因數分解設計的。對於傳統電腦，分解一個極大的數字極其耗時，這也是現代 RSA 加密系統安全的基礎。然而，量子電腦利用 Shor 演算法，可能在極短時間內破解目前需要數千萬年才能破解的加密，對現有資安體系構成嚴重威脅。</p>
+                `,
+                question: "哪一種量子演算法能夠有效進行質因數分解，對現行 RSA 加密構成威脅？",
+                options: ["Grover 演算法", "Hadamard 閘", "Shor 演算法"],
+                answer: "Shor 演算法",
+            },
+            {
+                id: 4,
+                title: "硬體實現",
+                icon: "🏭",
+                description: "了解量子電腦的硬體技術與挑戰",
+                info: `
+                    <p>將量子理論轉為現實面臨諸多挑戰，其中最大的障礙之一是「<strong>量子退相干</strong>」(Decoherence)。</p>
+                    <p>量子位元極其脆弱，非常容易受到環境中微小的擾動（如溫度變化、電磁波）影響，從而失去其疊加與糾纏等量子特性。目前主流的超導量子電腦需要在昂貴且龐大的稀釋冷凍機中運作，維持接近絕對零度的極低溫環境來對抗退相干。</p>
+                `,
+                question: "量子位元因受環境干擾而失去其量子特性的過程，稱為什麼？",
+                options: ["量子退相干 (Decoherence)", "量子糾纏 (Entanglement)", "量子優越性 (Quantum Supremacy)"],
+                answer: "量子退相干 (Decoherence)",
+            },
+            {
+                id: 5,
+                title: "全球發展",
+                icon: "🌏",
+                description: "探索全球量子科技發展趨勢",
+                info: `
+                    <p>作為量子計算領域的領導者，IBM 公布了其雄心勃勃的發展藍圖。</p>
+                    <p>IBM 計劃在 <strong>2029 年</strong>推出名為「<strong>IBM Quantum Starling</strong>」的大規模容錯量子電腦，預計其運算能力將比現今的量子電腦高出 <strong>20,000 倍</strong>，並能夠運行 200 個受錯誤更正保護的「邏輯量子位元」。</p>
+                `,
+                question: "IBM 計劃於 2029 年推出的高效能容錯量子電腦，其名稱是什麼？",
+                options: ["Kookaburra", "Starling", "Cockatoo"],
+                answer: "Starling",
+            },
+            {
+                id: 6,
+                title: "台灣量子",
+                icon: "🇹🇼",
+                description: "認識台灣的量子科技發展",
+                info: `
+                    <p>台灣憑藉其半導體產業優勢，也積極投入量子科技。在「量子國家隊」計畫推動下，中央研究院於 <strong>2024 年 1 月</strong>宣布成功打造出台灣第一台自研自製的「<strong>5 位元超導量子電腦</strong>」。</p>
+                    <p>此系統的量子邏輯閘保真度達到了 99.9%，標誌著台灣在量子硬體自主研發上邁出了關鍵一步，並為未來整合半導體優勢、發展更強大的量子晶片鋪路。</p>
+                `,
+                question: "台灣中央研究院在 2024 年初成功研發出的第一台自製量子電腦，擁有多少量子位元？",
+                options: ["500 位元", "50 位元", "5 位元"],
+                answer: "5 位元",
+            },
+        ];
+
+        // --- Game State and DOM Elements ---
+        let gameState = { score: 0, currentLevel: 1, completedLevels: 0 };
+
+        const levelsContainer = document.getElementById('levels-container');
+        const scoreEl = document.getElementById('score');
+        const currentLevelDisplayEl = document.getElementById('current-level-display');
+        const progressBarEl = document.getElementById('progress-bar');
+        const progressTextEl = document.getElementById('progress-text');
+        
+        const modal = document.getElementById('question-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalInfo = document.getElementById('modal-content-info');
+        const modalQuestion = document.getElementById('modal-question');
+        const modalOptions = document.getElementById('modal-options');
+        const feedbackEl = document.getElementById('feedback');
+        
+        const completionModal = document.getElementById('completion-modal');
+        const finalScoreEl = document.getElementById('final-score');
+        
+        // --- Gemini AI Feature Elements ---
+        const aiExplainButton = document.getElementById('ai-explain-button');
+        const aiLoader = document.getElementById('ai-explanation-loader');
+        const aiResult = document.getElementById('ai-explanation-result');
+
+        // --- Game Logic ---
+        function initGame() {
+            levelsContainer.innerHTML = '';
+            levels.forEach(level => {
+                const card = document.createElement('div');
+                card.id = `level-card-${level.id}`;
+                card.className = 'level-card bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md flex flex-col items-center justify-center text-center cursor-pointer';
+                if (level.id > gameState.currentLevel) {
+                    card.classList.add('locked');
+                }
+                card.innerHTML = `
+                    <div class="text-5xl mb-4">${level.icon}</div>
+                    <h3 class="text-xl font-bold mb-2 text-gray-800 dark:text-gray-200">第${level.id}關：${level.title}</h3>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">${level.description}</p>
+                `;
+                card.addEventListener('click', () => {
+                    if (!card.classList.contains('locked')) {
+                        openQuestionModal(level);
+                    }
+                });
+                levelsContainer.appendChild(card);
+            });
+            updateStats();
+        }
+
+        function updateStats() {
+            scoreEl.textContent = gameState.score;
+            currentLevelDisplayEl.textContent = gameState.currentLevel > levels.length ? '完成' : gameState.currentLevel;
+            const progress = (gameState.completedLevels / levels.length) * 100;
+            progressBarEl.style.width = `${progress}%`;
+            progressTextEl.textContent = `${Math.round(progress)}%`;
+        }
+        
+        function openQuestionModal(levelData) {
+            modalTitle.textContent = `第${levelData.id}關：${levelData.title}`;
+            modalInfo.innerHTML = levelData.info;
+            modalQuestion.textContent = levelData.question;
+            modalOptions.innerHTML = '';
+            
+            // Reset and configure AI feature
+            aiResult.classList.add('hidden');
+            aiResult.innerHTML = '';
+            aiLoader.classList.add('hidden');
+            aiExplainButton.classList.remove('hidden');
+            aiExplainButton.onclick = () => getAIExplanation(levelData.info);
+
+            const shuffledOptions = [...levelData.options].sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach(optionText => {
+                const button = document.createElement('button');
+                button.textContent = optionText;
+                button.className = 'w-full text-left p-4 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors';
+                button.onclick = () => checkAnswer(optionText, levelData);
+                modalOptions.appendChild(button);
+            });
+            
+            feedbackEl.classList.add('hidden');
+            modal.style.display = 'flex';
+        }
+
+        function checkAnswer(selectedOption, levelData) {
+            const isCorrect = selectedOption === levelData.answer;
+            feedbackEl.classList.remove('hidden');
+            
+            // Disable option buttons after an answer
+            Array.from(modalOptions.children).forEach(button => button.disabled = true);
+
+            if (isCorrect) {
+                gameState.score += 100;
+                gameState.completedLevels++;
+                feedbackEl.textContent = '答對了！太棒了！';
+                feedbackEl.className = 'mt-4 p-3 rounded-lg text-center font-semibold bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300';
+                
+                setTimeout(() => {
+                    closeModal();
+                    if (gameState.completedLevels === levels.length) {
+                       showCompletionModal();
+                    } else {
+                        gameState.currentLevel = Math.max(gameState.currentLevel, levelData.id + 1);
+                        unlockNextLevel();
+                    }
+                    updateStats();
+                }, 1500);
+
+            } else {
+                feedbackEl.textContent = '答錯了，再試一次吧！';
+                feedbackEl.className = 'mt-4 p-3 rounded-lg text-center font-semibold bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300';
+                // Re-enable buttons on wrong answer
+                setTimeout(() => {
+                   Array.from(modalOptions.children).forEach(button => button.disabled = false);
+                   feedbackEl.classList.add('hidden');
+                }, 2000);
+            }
+        }
+        
+        function unlockNextLevel() {
+            const nextLevelCard = document.getElementById(`level-card-${gameState.currentLevel}`);
+            if (nextLevelCard) {
+                nextLevelCard.classList.remove('locked');
+            }
+        }
+        
+        function showCompletionModal() {
+            finalScoreEl.textContent = gameState.score;
+            completionModal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+        
+        function restartGame() {
+            gameState = { score: 0, currentLevel: 1, completedLevels: 0 };
+            completionModal.style.display = 'none';
+            initGame();
+        }
+
+        // --- Gemini API Integration ---
+        async function getAIExplanation(infoHTML) {
+            // Show loader and hide button to prevent multiple clicks
+            aiLoader.classList.remove('hidden');
+            aiExplainButton.classList.add('hidden');
+            aiResult.classList.add('hidden');
+
+            // Sanitize HTML to get plain text for the prompt
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = infoHTML;
+            const plainTextInfo = tempDiv.textContent || tempDiv.innerText || "";
+
+            const prompt = `請用一個非常簡單、適合初學者的比喻，來解釋以下關於量子計算的概念。請用繁體中文回答，語氣要親切有趣。概念如下：「${plainTextInfo}」`;
+            
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // API Key will be handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API 請求失敗，狀態碼：${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    // Format the response text with paragraphs
+                    aiResult.innerHTML = text.split('\n').map(p => `<p>${p}</p>`).join('');
+                } else {
+                    throw new Error("收到的回應格式不符預期。");
+                }
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                aiResult.innerHTML = `<p class="text-red-500">抱歉，AI 小老師暫時無法連線。請稍後再試。</p>`;
+            } finally {
+                // Hide loader and show the result
+                aiLoader.classList.add('hidden');
+                aiResult.classList.remove('hidden');
+            }
+        }
+
+        // --- Event Listeners ---
+        modal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-backdrop')) {
+                closeModal();
+            }
+        });
+        
+        completionModal.addEventListener('click', (e) => {
+             if (e.target.classList.contains('modal-backdrop')) {
+                completionModal.style.display = 'none';
+            }
+        });
+
+        // Initialize the game on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>
